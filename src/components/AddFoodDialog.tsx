@@ -28,6 +28,8 @@ interface AddFoodDialogProps {
 
 const MEAL_TYPES = ["raňajky", "desiata", "obed", "olovrant", "večera", "káva", "iné"] as const;
 const REACTIONS = ["v pohode", "ľahké problémy", "stredné problémy", "veľké problémy"] as const;
+// Reaction is optional; this entry lets the user take a chosen value back (a Select cannot be cleared otherwise)
+const NO_REACTION = "bez reakcie";
 
 const mapMealTypeToDb = (mealType: string): "breakfast" | "snack" | "lunch" | "afternoon_snack" | "dinner" | "coffee" | null => {
   const mapping: Record<string, "breakfast" | "snack" | "lunch" | "afternoon_snack" | "dinner" | "coffee"> = {
@@ -64,13 +66,14 @@ const mapReactionToDb = (reaction: string): "good" | "neutral" | "bad" | null =>
   return mapping[reaction] ?? null;
 };
 
-const mapReactionFromDb = (dbReaction: string): string => {
+const mapReactionFromDb = (dbReaction: string | null): string => {
+  if (!dbReaction) return "";
   const mapping: Record<string, string> = {
     "good": "v pohode",
     "neutral": "ľahké problémy",
     "bad": "stredné problémy"
   };
-  return mapping[dbReaction] || "v pohode";
+  return mapping[dbReaction] ?? "";
 };
 
 export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess }: AddFoodDialogProps) {
@@ -228,16 +231,8 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
       return;
     }
 
+    // Optional: no choice is stored as null, never as an assumed "v pohode"
     const dbReaction = mapReactionToDb(reaction);
-    if (!dbReaction) {
-      setSubmitAttempted(true);
-      toast({
-        title: "Vyberte reakciu",
-        description: "Reakcia je povinná - vyberte, ako ste sa po jedle cítili.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setLoading(true);
     try {
@@ -791,15 +786,15 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="reaction">Reakcia *</Label>
+                  <Label htmlFor="reaction">Reakcia</Label>
                   <Select value={reaction} onValueChange={setReaction}>
-                    <SelectTrigger
-                      id="reaction"
-                      className={submitAttempted && !reaction ? "border-destructive ring-1 ring-destructive" : undefined}
-                    >
-                      <SelectValue placeholder="Vyberte reakciu" />
+                    <SelectTrigger id="reaction">
+                      <SelectValue placeholder="Nepovinné" />
                     </SelectTrigger>
                     <SelectContent>
+                      {reaction && reaction !== NO_REACTION && (
+                        <SelectItem value={NO_REACTION}>{NO_REACTION}</SelectItem>
+                      )}
                       {REACTIONS.map((r) => (
                         <SelectItem key={r} value={r}>
                           {r}
@@ -807,9 +802,6 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
                       ))}
                     </SelectContent>
                   </Select>
-                  {submitAttempted && !reaction && (
-                    <p className="text-xs text-destructive">Vyberte reakciu.</p>
-                  )}
                 </div>
               </div>
             )}

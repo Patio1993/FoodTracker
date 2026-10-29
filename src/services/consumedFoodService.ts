@@ -37,7 +37,7 @@ export type CreateConsumedFoodData = {
   time: string;
   amount: number;
   meal_type: "breakfast" | "snack" | "lunch" | "afternoon_snack" | "dinner" | "coffee";
-  reaction: "good" | "neutral" | "bad";
+  reaction?: "good" | "neutral" | "bad" | null;
   day_number: number;
   coffee_count?: number;
 };
