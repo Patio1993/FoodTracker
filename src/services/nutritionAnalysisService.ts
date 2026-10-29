@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { subDays, subMonths, format } from "date-fns";
+import { subDays, subMonths, format, differenceInCalendarDays } from "date-fns";
 
 export interface NutrientData {
   nutrient: string;
@@ -108,8 +108,8 @@ export const nutritionAnalysisService = {
     }
 
     // Calculate number of days in range
-    const daysDiff = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24));
-    const days = daysDiff > 0 ? daysDiff : 1;
+    // Inclusive: the query covers both startDate and today, so a "week" is 8 calendar days
+    const days = differenceInCalendarDays(today, startDate) + 1;
 
     // Calculate averages
     const avgKcal = totals.kcal / days;

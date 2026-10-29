@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { todayLocal } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type ConsumedFood = Tables<"consumed_foods">;
@@ -93,7 +94,7 @@ export const consumedFoodService = {
     if (error) throw error;
 
     // For each consumed food, calculate days_ago from TODAY (not from the displayed date)
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayLocal();
     const foodsWithLastConsumed = await Promise.all(
       (data || []).map(async (item) => {
         // Get last consumption of this food BEFORE today (excluding today)
@@ -104,7 +105,7 @@ export const consumedFoodService = {
           .lt("date", today)
           .order("date", { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         let days_ago: number | null = null;
         if (lastConsumed) {

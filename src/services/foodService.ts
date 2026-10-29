@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { todayLocal } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
 
 export interface Food {
@@ -66,7 +67,7 @@ export const foodService = {
 
     if (error) throw error;
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayLocal();
 
     const foodsWithLastConsumed = (data || []).map((food: any) => {
       const consumedDates = food.consumed_foods?.map((cf: any) => cf.date) || [];

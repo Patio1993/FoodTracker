@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { todayLocal } from "@/lib/utils";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type DailySummary = Tables<"daily_summary">;
@@ -101,7 +102,7 @@ export const dailySummaryService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = todayLocal();
 
     const { data, error } = await supabase
       .from("daily_summary")
