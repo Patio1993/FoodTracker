@@ -2,7 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { DailyNutritionSummary } from "@/services/consumedFoodService";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { DailyNutritionSummary, MealTypeFilter } from "@/services/consumedFoodService";
 import type { NutritionGoalStatus } from "@/services/dailySummaryService";
 import type { Tables } from "@/integrations/supabase/types";
 import { format, parseISO } from "date-fns";
@@ -72,6 +73,20 @@ const getNutrientColor = (value: number, max: number) => {
   return "#FFB300"; // Yellow/Orange (under limit)
 };
 
+// Shown instead of the goal colours while a single meal is selected: "below the
+// daily target" says nothing about one breakfast, so judging it would mislead.
+const NEUTRAL_COLOR = "#64748B";
+
+const MEAL_FILTER_OPTIONS: { value: MealTypeFilter; label: string }[] = [
+  { value: "all", label: "Celý deň" },
+  { value: "breakfast", label: "🌅 Raňajky" },
+  { value: "snack", label: "🍎 Desiata" },
+  { value: "lunch", label: "🍽️ Obed" },
+  { value: "afternoon_snack", label: "🥤 Olovrant" },
+  { value: "dinner", label: "🌙 Večera" },
+  { value: "coffee", label: "☕ Káva" },
+];
+
 interface DailySummaryCardProps {
   date: string;
   nutrition: DailyNutritionSummary;
@@ -87,6 +102,9 @@ interface DailySummaryCardProps {
   wcCount: number;
   lastRestaurant: { date: string; days_ago: number } | null;
   profile: Profile | null;
+  mealFilter: MealTypeFilter;
+  filteredFoodCount: number;
+  onMealFilterChange: (mealType: MealTypeFilter) => void;
   onExerciseChange: (checked: boolean) => void;
   onWalkMinutesChange: (value: number) => void;
   onWeightChange: (value: number | null) => void;
@@ -112,6 +130,9 @@ export function DailySummaryCard({
   wcCount,
   lastRestaurant,
   profile,
+  mealFilter,
+  filteredFoodCount,
+  onMealFilterChange,
   onExerciseChange,
   onWalkMinutesChange,
   onWeightChange,
@@ -224,9 +245,15 @@ export function DailySummaryCard({
 
   const lastRestaurantText = formatLastRestaurant(lastRestaurant);
 
+  const isFiltered = mealFilter !== "all";
+  const mealFilterLabel = MEAL_FILTER_OPTIONS.find((o) => o.value === mealFilter)?.label ?? "Celý deň";
+  // While filtered the values are still measured against the whole day's goals —
+  // the circles then read as "how much of the daily target this meal covered".
+  const nutrientRingColor = isFiltered ? NEUTRAL_COLOR : undefined;
+
   return (
     <Card className="bg-green-50/30">
-      <CardHeader className="pb-4">
+      <CardHeader className="pb-4 space-y-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <Calendar className="h-5 w-5" />
@@ -236,8 +263,36 @@ export function DailySummaryCard({
             {format(new Date(date), "EEEE, d. MMMM yyyy", { locale: sk })}
           </Badge>
         </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Label htmlFor="meal-filter" className="text-xs font-semibold text-muted-foreground">
+            Jedlo:
+          </Label>
+          <Select value={mealFilter} onValueChange={(value) => onMealFilterChange(value as MealTypeFilter)}>
+            <SelectTrigger id="meal-filter" className="w-[170px] h-8 bg-background">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MEAL_FILTER_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {isFiltered && (
+            <span className="text-[11px] text-muted-foreground">
+              podiel z denného cieľa
+            </span>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {isFiltered && filteredFoodCount === 0 && (
+          <div className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+            Pre výber „{mealFilterLabel}" nie sú v tento deň žiadne záznamy.
+          </div>
+        )}
         {/* Calories */}
         <div 
           className="bg-green-50 rounded-lg p-4 border cursor-pointer hover:bg-green-100 transition-colors"
@@ -248,13 +303,15 @@ export function DailySummaryCard({
               <span className="text-lg">🔥</span>
               <div>
                 <div className="font-medium">Kalórie</div>
-                <div className="text-xs text-muted-foreground">Denný príjem</div>
+                <div className="text-xs text-muted-foreground">
+                  {isFiltered ? mealFilterLabel : "Denný príjem"}
+                </div>
               </div>
             </div>
           </div>
-          
+
           <div className="flex items-center justify-center gap-4">
-            <CircularProgress value={nutrition.total_kcal} max={kcalTarget} size={70} strokeWidth={7} />
+            <CircularProgress value={nutrition.total_kcal} max={kcalTarget} size={70} strokeWidth={7} color={nutrientRingColor} />
             <div className="flex flex-col">
               <div className="text-2xl font-bold">{Math.round(nutrition.total_kcal)} kcal</div>
               <div className="text-sm text-muted-foreground">z {kcalTarget} kcal</div>
@@ -266,6 +323,9 @@ export function DailySummaryCard({
         <div className="bg-green-50 rounded-lg p-4 border">
           <h3 className="font-semibold text-sm mb-5 text-foreground flex items-center justify-between">
             <span>Nutrienty</span>
+            {isFiltered && (
+              <span className="text-xs font-normal text-muted-foreground">{mealFilterLabel}</span>
+            )}
           </h3>
           <div className="grid grid-cols-3 gap-3">
             {nutrients.map((nutrient) => {
@@ -292,12 +352,13 @@ export function DailySummaryCard({
                 >
                   <div className="flex flex-col items-center gap-2">
                     <div className="text-xs font-medium text-muted-foreground">{nutrient.label}</div>
-                    <CircularProgress value={nutrient.value} max={nutrient.max} size={50} strokeWidth={5} />
+                    <CircularProgress value={nutrient.value} max={nutrient.max} size={50} strokeWidth={5} color={nutrientRingColor} />
                     <div className={cn(
                       "text-sm font-semibold",
-                      inRange && "text-green-700",
-                      belowRange && "text-orange-700",
-                      aboveRange && "text-red-700"
+                      isFiltered && "text-foreground",
+                      !isFiltered && inRange && "text-green-700",
+                      !isFiltered && belowRange && "text-orange-700",
+                      !isFiltered && aboveRange && "text-red-700"
                     )}>
                       {nutrient.value.toFixed(2)}g
                     </div>

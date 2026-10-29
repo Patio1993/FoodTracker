@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SEO } from "@/components/SEO";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, User, Plus, LogOut } from "lucide-react";
@@ -27,9 +27,9 @@ import { activityService } from "@/services/activityService";
 import { medicineService } from "@/services/medicineService";
 import { wcService } from "@/services/wcService";
 import { profileService } from "@/services/profileService";
-import type { 
-  ConsumedFoodWithDetails, 
-  DailyNutritionSummary,
+import type {
+  ConsumedFoodWithDetails,
+  MealTypeFilter,
 } from "@/services/consumedFoodService";
 import type { NutritionGoalStatus } from "@/services/dailySummaryService";
 import type { Tables } from "@/integrations/supabase/types";
@@ -62,30 +62,48 @@ export default function Home() {
   
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [consumedFoods, setConsumedFoods] = useState<ConsumedFoodWithDetails[]>([]);
-  const [nutrition, setNutrition] = useState<DailyNutritionSummary>({
-    total_fiber: 0,
-    total_sugar: 0,
-    total_fats: 0,
-    total_kcal: 0,
-    total_carbs: 0,
-    total_protein: 0,
-    total_salt: 0,
-  });
+  const [mealFilter, setMealFilter] = useState<MealTypeFilter>("all");
   const [waterTotal, setWaterTotal] = useState(0);
   const [exercise, setExercise] = useState(false);
   const [walkMinutes, setWalkMinutes] = useState(0);
   const [weight, setWeight] = useState<number | null>(null);
   const [restaurant, setRestaurant] = useState(false);
-  const [goals, setGoals] = useState<NutritionGoalStatus>({
-    fiber: "warning",
-    sugar: "warning",
-    fats: "warning",
-  });
   const [lastRestaurant, setLastRestaurant] = useState<{ date: string; days_ago: number } | null>(null);
   const [activityCount, setActivityCount] = useState(0);
   const [medicineCount, setMedicineCount] = useState(0);
   const [wcCount, setWcCount] = useState(0);
   const [showFoodManagement, setShowFoodManagement] = useState(false);
+
+  // The day's entries are already loaded, so the meal filter is applied in
+  // memory - switching it costs no round trip.
+  const filteredConsumedFoods = useMemo(
+    () =>
+      mealFilter === "all"
+        ? consumedFoods
+        : consumedFoods.filter((food) => food.meal_type === mealFilter),
+    [consumedFoods, mealFilter]
+  );
+
+  const nutrition = useMemo(
+    () => consumedFoodService.summarizeConsumedFoods(filteredConsumedFoods),
+    [filteredConsumedFoods]
+  );
+
+  // Goals stay tied to the whole day - they are daily limits, not per-meal ones.
+  const dailyNutrition = useMemo(
+    () => consumedFoodService.summarizeConsumedFoods(consumedFoods),
+    [consumedFoods]
+  );
+
+  const goals: NutritionGoalStatus = useMemo(
+    () =>
+      dailySummaryService.evaluateNutritionGoals(
+        dailyNutrition.total_fiber,
+        dailyNutrition.total_sugar,
+        dailyNutrition.total_fats
+      ),
+    [dailyNutrition]
+  );
 
   const formatDateDisplay = (dateStr: string) => {
     const d = parseISO(dateStr);
@@ -144,10 +162,6 @@ export default function Home() {
       const fetchedFoods = await consumedFoodService.getDailyConsumedFoods(date);
       setConsumedFoods(fetchedFoods);
 
-      // Nutrition
-      const fetchedNutrition = await consumedFoodService.getDailyNutritionSummary(date);
-      setNutrition(fetchedNutrition);
-
       // Water
       const fetchedWater = await waterService.getDailyTotal(date);
       setWaterTotal(fetchedWater);
@@ -174,13 +188,6 @@ export default function Home() {
       setWeight(displayWeight);
       
       setRestaurant(summary.restaurant || false);
-
-      const newGoals = dailySummaryService.evaluateNutritionGoals(
-        fetchedNutrition.total_fiber,
-        fetchedNutrition.total_sugar,
-        fetchedNutrition.total_fats
-      );
-      setGoals(newGoals);
 
       const lastRest = await dailySummaryService.getLastRestaurantVisit();
       setLastRestaurant(lastRest);
@@ -399,6 +406,9 @@ export default function Home() {
                 restaurant={restaurant}
                 lastRestaurant={lastRestaurant}
                 profile={profile}
+                mealFilter={mealFilter}
+                filteredFoodCount={filteredConsumedFoods.length}
+                onMealFilterChange={setMealFilter}
                 onExerciseChange={async (v) => { 
                   setExercise(v); 
                   await dailySummaryService.updateDailySummary(date, { exercise: v }); 
@@ -527,7 +537,7 @@ export default function Home() {
           open={showNutrientDialog}
           onOpenChange={setShowNutrientDialog}
           nutrientType={selectedNutrient}
-          foods={consumedFoods}
+          foods={filteredConsumedFoods}
         />
 
         <ProfileDialog

@@ -2,6 +2,19 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 
 export type ConsumedFood = Tables<"consumed_foods">;
+
+export const MEAL_TYPES = [
+  "breakfast",
+  "snack",
+  "lunch",
+  "afternoon_snack",
+  "dinner",
+  "coffee",
+] as const;
+
+export type MealType = (typeof MEAL_TYPES)[number];
+export type MealTypeFilter = MealType | "all";
+
 export type DailyNutritionSummary = {
   total_kcal: number;
   total_fiber: number;
@@ -115,17 +128,16 @@ export const consumedFoodService = {
     return foodsWithLastConsumed;
   },
 
-  async getDailyNutritionSummary(date: string): Promise<DailyNutritionSummary> {
-    const { data, error } = await supabase
-      .from("consumed_foods")
-      .select(`
-        amount,
-        food:foods(kcal, fiber, sugar, carbs, fats, protein, salt)
-      `)
-      .eq("date", date);
-
-    if (error) throw error;
-
+  /**
+   * Sums up the nutrition of already loaded consumed foods, optionally limited
+   * to a single meal type. Pure and synchronous on purpose: the dashboard
+   * already holds the day's entries, so switching the meal filter must not
+   * cost another round trip.
+   */
+  summarizeConsumedFoods(
+    foods: ConsumedFoodWithDetails[],
+    mealType: MealTypeFilter = "all"
+  ): DailyNutritionSummary {
     const summary: DailyNutritionSummary = {
       total_kcal: 0,
       total_fiber: 0,
@@ -136,17 +148,18 @@ export const consumedFoodService = {
       total_salt: 0,
     };
 
-    data?.forEach((item: any) => {
-      if (item.food) {
-        const ratio = item.amount / 100;
-        summary.total_kcal += item.food.kcal * ratio;
-        summary.total_fiber += item.food.fiber * ratio;
-        summary.total_sugar += item.food.sugar * ratio;
-        summary.total_carbs += item.food.carbs * ratio;
-        summary.total_fats += item.food.fats * ratio;
-        summary.total_protein += item.food.protein * ratio;
-        summary.total_salt += item.food.salt * ratio;
-      }
+    foods.forEach((item) => {
+      if (!item.food) return;
+      if (mealType !== "all" && item.meal_type !== mealType) return;
+
+      const ratio = item.amount / 100;
+      summary.total_kcal += item.food.kcal * ratio;
+      summary.total_fiber += item.food.fiber * ratio;
+      summary.total_sugar += item.food.sugar * ratio;
+      summary.total_carbs += item.food.carbs * ratio;
+      summary.total_fats += item.food.fats * ratio;
+      summary.total_protein += item.food.protein * ratio;
+      summary.total_salt += item.food.salt * ratio;
     });
 
     // Round to 2 decimal places
