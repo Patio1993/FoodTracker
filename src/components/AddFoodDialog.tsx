@@ -29,7 +29,7 @@ interface AddFoodDialogProps {
 const MEAL_TYPES = ["raňajky", "desiata", "obed", "olovrant", "večera", "káva", "iné"] as const;
 const REACTIONS = ["v pohode", "ľahké problémy", "stredné problémy", "veľké problémy"] as const;
 
-const mapMealTypeToDb = (mealType: string): "breakfast" | "snack" | "lunch" | "afternoon_snack" | "dinner" | "coffee" => {
+const mapMealTypeToDb = (mealType: string): "breakfast" | "snack" | "lunch" | "afternoon_snack" | "dinner" | "coffee" | null => {
   const mapping: Record<string, "breakfast" | "snack" | "lunch" | "afternoon_snack" | "dinner" | "coffee"> = {
     "raňajky": "breakfast",
     "desiata": "snack",
@@ -39,7 +39,7 @@ const mapMealTypeToDb = (mealType: string): "breakfast" | "snack" | "lunch" | "a
     "káva": "coffee",
     "iné": "coffee"
   };
-  return mapping[mealType] || "lunch";
+  return mapping[mealType] ?? null;
 };
 
 const mapMealTypeFromDb = (dbMealType: string): string => {
@@ -54,14 +54,14 @@ const mapMealTypeFromDb = (dbMealType: string): string => {
   return mapping[dbMealType] || "obed";
 };
 
-const mapReactionToDb = (reaction: string): "good" | "neutral" | "bad" => {
+const mapReactionToDb = (reaction: string): "good" | "neutral" | "bad" | null => {
   const mapping: Record<string, "good" | "neutral" | "bad"> = {
     "v pohode": "good",
     "ľahké problémy": "neutral",
     "stredné problémy": "bad",
     "veľké problémy": "bad"
   };
-  return mapping[reaction] || "good";
+  return mapping[reaction] ?? null;
 };
 
 const mapReactionFromDb = (dbReaction: string): string => {
@@ -78,8 +78,10 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [amount, setAmount] = useState<string>("100");
-  const [mealType, setMealType] = useState<string>("lunch");
+  const [mealType, setMealType] = useState<string>("");
   const [reaction, setReaction] = useState<string>("");
+  // Set after a failed submit so the empty required selects get flagged
+  const [submitAttempted, setSubmitAttempted] = useState(false);
   const [time, setTime] = useState("");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -161,9 +163,10 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
     setSelectedFood(null);
     setSearchQuery("");
     setAmount("100");
-    setMealType("lunch");
+    setMealType("");
     setReaction("");
     setTime("");
+    setSubmitAttempted(false);
   };
 
   const handleSelectFood = (food: FoodWithLastConsumed) => {
@@ -214,6 +217,28 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
       return;
     }
 
+    const dbMealType = mapMealTypeToDb(mealType);
+    if (!dbMealType) {
+      setSubmitAttempted(true);
+      toast({
+        title: "Vyberte typ jedla",
+        description: "Typ jedla je povinný - vyberte raňajky, obed, večeru alebo iný typ.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const dbReaction = mapReactionToDb(reaction);
+    if (!dbReaction) {
+      setSubmitAttempted(true);
+      toast({
+        title: "Vyberte reakciu",
+        description: "Reakcia je povinná - vyberte, ako ste sa po jedle cítili.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       // Calculate consecutive days for this specific food and date
@@ -226,7 +251,8 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
       let coffeeCount: number | undefined;
       if (mealType === "káva") {
         const currentCount = await consumedFoodService.getTodayCoffeeCount(date);
-        coffeeCount = currentCount + 1;
+        const alreadyCounted = editingFood?.meal_type === "coffee" && editingFood.date === date;
+        coffeeCount = alreadyCounted ? currentCount : currentCount + 1;
       }
 
       if (editingFood) {
@@ -235,8 +261,8 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
           date,
           time,
           amount: parseFloat(amount),
-          meal_type: mapMealTypeToDb(mealType),
-          reaction: mapReactionToDb(reaction),
+          meal_type: dbMealType,
+          reaction: dbReaction,
           day_number: dayNumber,
           coffee_count: coffeeCount,
         });
@@ -250,8 +276,8 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
           date,
           time,
           amount: parseFloat(amount),
-          meal_type: mapMealTypeToDb(mealType),
-          reaction: mapReactionToDb(reaction),
+          meal_type: dbMealType,
+          reaction: dbReaction,
           day_number: dayNumber,
           coffee_count: coffeeCount,
         });
@@ -745,8 +771,11 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
                 <div className="space-y-2">
                   <Label htmlFor="meal-type">Typ jedla *</Label>
                   <Select value={mealType} onValueChange={setMealType}>
-                    <SelectTrigger id="meal-type">
-                      <SelectValue />
+                    <SelectTrigger
+                      id="meal-type"
+                      className={submitAttempted && !mealType ? "border-destructive ring-1 ring-destructive" : undefined}
+                    >
+                      <SelectValue placeholder="Vyberte typ jedla" />
                     </SelectTrigger>
                     <SelectContent>
                       {MEAL_TYPES.map((type) => (
@@ -756,13 +785,19 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
                       ))}
                     </SelectContent>
                   </Select>
+                  {submitAttempted && !mealType && (
+                    <p className="text-xs text-destructive">Vyberte typ jedla.</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="reaction">Reakcia *</Label>
                   <Select value={reaction} onValueChange={setReaction}>
-                    <SelectTrigger id="reaction">
-                      <SelectValue />
+                    <SelectTrigger
+                      id="reaction"
+                      className={submitAttempted && !reaction ? "border-destructive ring-1 ring-destructive" : undefined}
+                    >
+                      <SelectValue placeholder="Vyberte reakciu" />
                     </SelectTrigger>
                     <SelectContent>
                       {REACTIONS.map((r) => (
@@ -772,6 +807,9 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
                       ))}
                     </SelectContent>
                   </Select>
+                  {submitAttempted && !reaction && (
+                    <p className="text-xs text-destructive">Vyberte reakciu.</p>
+                  )}
                 </div>
               </div>
             )}
