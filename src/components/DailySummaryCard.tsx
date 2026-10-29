@@ -102,6 +102,7 @@ interface DailySummaryCardProps {
   wcCount: number;
   lastRestaurant: { date: string; days_ago: number } | null;
   profile: Profile | null;
+  showWc: boolean;
   mealFilter: MealTypeFilter;
   filteredFoodCount: number;
   onMealFilterChange: (mealType: MealTypeFilter) => void;
@@ -130,6 +131,7 @@ export function DailySummaryCard({
   wcCount,
   lastRestaurant,
   profile,
+  showWc,
   mealFilter,
   filteredFoodCount,
   onMealFilterChange,
@@ -260,7 +262,7 @@ export function DailySummaryCard({
             Denný súhrn
           </CardTitle>
           <Badge variant="outline" className="font-normal">
-            {format(new Date(date), "EEEE, d. MMMM yyyy", { locale: sk })}
+            {format(parseISO(date), "EEEE, d. MMMM yyyy", { locale: sk })}
           </Badge>
         </div>
 
@@ -392,7 +394,7 @@ export function DailySummaryCard({
         </div>
 
         {/* Quick Actions & Coffee */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className={cn("grid gap-2", showWc ? "grid-cols-4" : "grid-cols-3")}>
           <button onClick={onActivityClick} className="bg-green-50 rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors">
             <span className="text-2xl">🚶</span>
             <span className="text-[10px] font-semibold text-foreground">Aktivity</span>
@@ -403,11 +405,13 @@ export function DailySummaryCard({
             <span className="text-[10px] font-semibold text-foreground">Lieky</span>
             {medicineCount > 0 && <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">{medicineCount}x</span>}
           </button>
-          <button onClick={onWCClick} className="bg-green-50 rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors">
-            <span className="text-2xl">🚽</span>
-            <span className="text-[10px] font-semibold text-foreground">WC</span>
-            {wcCount > 0 && <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">{wcCount}x</span>}
-          </button>
+          {showWc && (
+            <button onClick={onWCClick} className="bg-green-50 rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-1.5 hover:bg-gray-50 transition-colors">
+              <span className="text-2xl">🚽</span>
+              <span className="text-[10px] font-semibold text-foreground">WC</span>
+              {wcCount > 0 && <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full">{wcCount}x</span>}
+            </button>
+          )}
           <div className="bg-green-50 rounded-xl p-3 border border-gray-100 shadow-sm flex flex-col items-center justify-center gap-1.5">
             <span className="text-2xl">☕</span>
             <span className="text-[10px] font-semibold text-foreground">Káva</span>

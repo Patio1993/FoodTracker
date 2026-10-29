@@ -12,6 +12,8 @@ import { Upload, Trash2, User, Download } from "lucide-react";
 import type { Tables } from "@/integrations/supabase/types";
 import { backupService } from "@/services/backupService";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/integrations/supabase/client";
 
 type Profile = Tables<"profiles">;
 
@@ -19,9 +21,10 @@ interface ProfileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onProfileUpdated: () => void;
+  onWcTrackingChange?: (enabled: boolean) => void;
 }
 
-export function ProfileDialog({ open, onOpenChange, onProfileUpdated }: ProfileDialogProps) {
+export function ProfileDialog({ open, onOpenChange, onProfileUpdated, onWcTrackingChange }: ProfileDialogProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -63,6 +66,8 @@ export function ProfileDialog({ open, onOpenChange, onProfileUpdated }: ProfileD
   const [weight, setWeight] = useState("");
   const [gender, setGender] = useState<string>("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [wcTracking, setWcTracking] = useState(false);
+  const [savingWcTracking, setSavingWcTracking] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -72,7 +77,10 @@ export function ProfileDialog({ open, onOpenChange, onProfileUpdated }: ProfileD
 
   const loadProfile = async () => {
     const profile = await profileService.getCurrentProfile();
+    const { data: { user } } = await supabase.auth.getUser();
+    setWcTracking(profileService.isWcTrackingEnabled(user));
     if (profile) {
+      setProfile(profile);
       setFullName(profile.full_name || "");
       setNickname(profile.nickname || "");
       setAge(profile.age?.toString() || "");
@@ -102,6 +110,27 @@ export function ProfileDialog({ open, onOpenChange, onProfileUpdated }: ProfileD
       setKcalTarget(profile.kcal_target?.toString() || "2000");
       setWaterGoalMl(profile.water_goal_ml?.toString() || "2000");
       setHealthGoal(profile.health_goal || "maintain");
+    }
+  };
+
+  // Saved on toggle, not with the form below - it is a display setting and the
+  // dashboard should react at once.
+  const handleWcTrackingToggle = async (enabled: boolean) => {
+    const previous = wcTracking;
+    setWcTracking(enabled);
+    setSavingWcTracking(true);
+    try {
+      await profileService.setWcTrackingEnabled(enabled);
+      onWcTrackingChange?.(enabled);
+    } catch (error: any) {
+      setWcTracking(previous);
+      toast({
+        title: "Chyba",
+        description: error.message || "Nepodarilo sa uložiť nastavenie",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingWcTracking(false);
     }
   };
 
@@ -520,6 +549,24 @@ export function ProfileDialog({ open, onOpenChange, onProfileUpdated }: ProfileD
                 {loading ? "Ukladám..." : "Uložiť zmeny"}
               </Button>
             </form>
+
+            <div className="mt-6 border-t pt-4 pb-4">
+              <h3 className="font-semibold mb-3">Zobrazenie</h3>
+              <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label htmlFor="wcTracking" className="cursor-pointer">🚽 Sledovanie WC</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Zobrazí na hlavnej stránke dlaždicu a záznamy WC. Predvolene vypnuté.
+                  </p>
+                </div>
+                <Switch
+                  id="wcTracking"
+                  checked={wcTracking}
+                  onCheckedChange={handleWcTrackingToggle}
+                  disabled={savingWcTracking}
+                />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="goals" className="flex-1 overflow-y-auto mt-4 space-y-4">

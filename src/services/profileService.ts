@@ -33,7 +33,19 @@ export interface ProfileUpdate {
   health_goal?: "lose_weight" | "maintain" | "gain_muscle" | "improve_digestion" | null;
 }
 
+// UI preferences live in the Supabase Auth user metadata rather than in the
+// profiles table: they follow the account across devices and need no schema change.
 export const profileService = {
+  /** WC tracking is opt-in, so anything but an explicit true means off. */
+  isWcTrackingEnabled(user: { user_metadata?: Record<string, unknown> } | null | undefined): boolean {
+    return user?.user_metadata?.show_wc === true;
+  },
+
+  async setWcTrackingEnabled(enabled: boolean): Promise<void> {
+    const { error } = await supabase.auth.updateUser({ data: { show_wc: enabled } });
+    if (error) throw error;
+  },
+
   async getCurrentProfile(): Promise<Profile | null> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;

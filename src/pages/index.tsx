@@ -73,6 +73,8 @@ export default function Home() {
   const [medicineCount, setMedicineCount] = useState(0);
   const [wcCount, setWcCount] = useState(0);
   const [showFoodManagement, setShowFoodManagement] = useState(false);
+  // WC tracking is opt-in (profile > Zobrazenie), off until the user turns it on
+  const [showWc, setShowWc] = useState(false);
 
   // The day's entries are already loaded, so the meal filter is applied in
   // memory - switching it costs no round trip.
@@ -132,6 +134,7 @@ export default function Home() {
       } else if (event === 'SIGNED_OUT') {
         setUserEmail(null);
         setProfile(null);
+        setShowWc(false);
       }
     });
 
@@ -144,11 +147,12 @@ export default function Home() {
     if (userEmail) {
       loadDailyData();
     }
-  }, [date, userEmail]);
+  }, [date, userEmail, showWc]);
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setUserEmail(user?.email || null);
+    setShowWc(profileService.isWcTrackingEnabled(user));
     if (user) {
       const profileData = await profileService.getCurrentProfile();
       setProfile(profileData);
@@ -173,8 +177,12 @@ export default function Home() {
       const medicines = await medicineService.getDailyMedicines(date);
       setMedicineCount(medicines.length);
 
-      const wcEntries = await wcService.getDailyEntries(date);
-      setWcCount(wcEntries.length);
+      if (showWc) {
+        const wcEntries = await wcService.getDailyEntries(date);
+        setWcCount(wcEntries.length);
+      } else {
+        setWcCount(0);
+      }
 
       // Daily summary (goals, exercise, etc.)
       const summary = await dailySummaryService.getOrCreateDailySummary(date);
@@ -406,6 +414,7 @@ export default function Home() {
                 restaurant={restaurant}
                 lastRestaurant={lastRestaurant}
                 profile={profile}
+                showWc={showWc}
                 mealFilter={mealFilter}
                 filteredFoodCount={filteredConsumedFoods.length}
                 onMealFilterChange={setMealFilter}
@@ -451,7 +460,7 @@ export default function Home() {
                 onWCClick={() => setShowWCDialog(true)}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${showWc ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
                 <ActivitiesManager 
                   date={date} 
                   open={showActivityDialog}
@@ -462,11 +471,13 @@ export default function Home() {
                   open={showMedicineDialog}
                   onOpenChange={setShowMedicineDialog}
                 />
-                <WCManager 
-                  date={date} 
-                  open={showWCDialog}
-                  onOpenChange={setShowWCDialog}
-                />
+                {showWc && (
+                  <WCManager
+                    date={date}
+                    open={showWCDialog}
+                    onOpenChange={setShowWCDialog}
+                  />
+                )}
                 <WaterIntakeManager date={date} onWaterAdded={loadDailyData} />
               </div>
 
@@ -544,6 +555,7 @@ export default function Home() {
           open={showProfileDialog}
           onOpenChange={setShowProfileDialog}
           onProfileUpdated={loadProfile}
+          onWcTrackingChange={setShowWc}
         />
       </div>
     </>
