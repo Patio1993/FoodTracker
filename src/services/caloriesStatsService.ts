@@ -65,6 +65,14 @@ export const caloriesStatsService = {
       });
     }
 
+    // Goal comes from the user's profile; 2000 is only the fallback for an unset one
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("kcal_target")
+      .eq("id", user.id)
+      .maybeSingle();
+    const kcalGoal = profile?.kcal_target || 2000;
+
     // Get all days in the range
     const allDays = eachDayOfInterval({ start: startDate, end: today });
 
@@ -75,7 +83,7 @@ export const caloriesStatsService = {
       return {
         date: dateStr,
         calories: Math.round(calories),
-        goal: 2000, // Default goal
+        goal: kcalGoal,
       };
     });
 

@@ -120,15 +120,22 @@ export const nutritionAnalysisService = {
     const avgFiber = totals.fiber / days;
     const avgSalt = totals.salt / days;
 
-    // Define goals
+    // Goals come from the user's profile; the numbers are only fallbacks for
+    // targets the user has not set (same defaults the dashboard uses).
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("kcal_target, protein_target, carbs_target, sugar_target, fats_target, fiber_target, salt_max")
+      .eq("id", user.id)
+      .maybeSingle();
+
     const goals = {
-      kcal: 2000,
-      protein: 80,
-      carbs: 220,
-      sugar: 50,
-      fats: 60,
-      fiber: 30,
-      salt: 5,
+      kcal: profile?.kcal_target || 2000,
+      protein: profile?.protein_target || 80,
+      carbs: profile?.carbs_target || 220,
+      sugar: profile?.sugar_target || 50,
+      fats: profile?.fats_target || 60,
+      fiber: profile?.fiber_target || 30,
+      salt: profile?.salt_max || 5,
     };
 
     const nutrients: NutrientData[] = [
