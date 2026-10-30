@@ -80,7 +80,7 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
   const [foods, setFoods] = useState<FoodWithLastConsumed[]>([]);
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [amount, setAmount] = useState<string>("100");
+  const [amount, setAmount] = useState<string>("");
   const [mealType, setMealType] = useState<string>("");
   const [reaction, setReaction] = useState<string>("");
   // Set after a failed submit so the empty required selects get flagged
@@ -165,7 +165,7 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
   const resetForm = () => {
     setSelectedFood(null);
     setSearchQuery("");
-    setAmount("100");
+    setAmount("");
     setMealType("");
     setReaction("");
     setTime("");
@@ -174,7 +174,7 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
 
   const handleSelectFood = (food: FoodWithLastConsumed) => {
     setSelectedFood(food);
-    setAmount(food.unit === "ml" ? "250" : "100");
+    setAmount("");
     
     // Auto-select 'káva' if food name contains káva or kava
     const foodName = food.name.toLowerCase();
@@ -202,10 +202,12 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
       return;
     }
 
-    if (!amount || parseFloat(amount) <= 0) {
+    // Also catches an empty field: parseFloat("") is NaN
+    if (!(parseFloat(amount) > 0)) {
+      setSubmitAttempted(true);
       toast({
-        title: "Chyba",
-        description: "Zadajte platné množstvo",
+        title: "Zadajte množstvo",
+        description: `Množstvo je povinné a musí byť väčšie ako 0 ${selectedFood.unit}.`,
         variant: "destructive",
       });
       return;
@@ -450,7 +452,7 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
         days_ago: null,
       };
       setSelectedFood(foodWithLastConsumed);
-      setAmount("100");
+      setAmount("");
       
       // Reset form
       setNewFoodName("");
@@ -575,7 +577,7 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
                             key={food.id}
                             onClick={() => {
                               setSelectedFood(food);
-                              setAmount("100");
+                              setAmount("");
                               setTimeout(() => {
                                 amountInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                                 amountInputRef.current?.focus();
@@ -626,7 +628,7 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
                               key={food.id}
                               onClick={() => {
                                 setSelectedFood(food);
-                                setAmount("100");
+                                setAmount("");
                                 setTimeout(() => {
                                   amountInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                                   amountInputRef.current?.focus();
@@ -671,7 +673,7 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
                               key={food.id}
                               onClick={() => {
                                 setSelectedFood(food);
-                                setAmount("100");
+                                setAmount("");
                                 setTimeout(() => {
                                   amountInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
                                   amountInputRef.current?.focus();
@@ -740,14 +742,15 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="amount">Množstvo ({selectedFood.unit})</Label>
+                    <Label htmlFor="amount">Množstvo ({selectedFood.unit}) *</Label>
                     <Input
                       id="amount"
                       ref={amountInputRef}
                       type="number"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      placeholder="100"
+                      placeholder="Zadajte množstvo"
+                      className={submitAttempted && !(parseFloat(amount) > 0) ? "border-destructive ring-1 ring-destructive" : undefined}
                     />
                   </div>
 
