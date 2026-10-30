@@ -747,6 +747,7 @@ export function AddFoodDialog({ open, onOpenChange, date, editingFood, onSuccess
                       id="amount"
                       ref={amountInputRef}
                       type="number"
+                      step="0.1"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="Zadajte množstvo"
