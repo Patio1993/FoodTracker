@@ -14,7 +14,7 @@ import { MedicinesManager } from "@/components/MedicinesManager";
 import { WCManager } from "@/components/WCManager";
 import { WaterIntakeManager } from "@/components/WaterIntakeManager";
 import { FoodManagement } from "@/components/FoodManagement";
-import { NutrientDetailDialog } from "@/components/NutrientDetailDialog";
+import { NutrientDetailDialog, type NutrientType } from "@/components/NutrientDetailDialog";
 import { ProfileDialog } from "@/components/ProfileDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,7 +56,7 @@ export default function Home() {
   const [showMedicineDialog, setShowMedicineDialog] = useState(false);
   const [showWCDialog, setShowWCDialog] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
-  const [selectedNutrient, setSelectedNutrient] = useState<"fiber" | "sugar" | "fats" | null>(null);
+  const [selectedNutrient, setSelectedNutrient] = useState<NutrientType | null>(null);
   const [editingFood, setEditingFood] = useState<ConsumedFoodWithDetails | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   
@@ -219,11 +219,9 @@ export default function Home() {
     setEditingFood(null);
   };
 
-  const handleNutrientClick = (nutrient: string) => {
-    if (nutrient === "fiber" || nutrient === "sugar" || nutrient === "fats") {
-      setSelectedNutrient(nutrient);
-      setShowNutrientDialog(true);
-    }
+  const handleNutrientClick = (nutrient: NutrientType) => {
+    setSelectedNutrient(nutrient);
+    setShowNutrientDialog(true);
   };
 
   const loadProfile = async () => {

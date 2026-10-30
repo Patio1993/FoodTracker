@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useRef } from "react";
 import { dailySummaryService } from "@/services/dailySummaryService";
 import { profileService } from "@/services/profileService";
+import type { NutrientType } from "@/components/NutrientDetailDialog";
 
 type Profile = Tables<"profiles">;
 
@@ -110,7 +111,7 @@ interface DailySummaryCardProps {
   onWalkMinutesChange: (value: number) => void;
   onWeightChange: (value: number | null) => void;
   onRestaurantChange: (checked: boolean) => void;
-  onNutrientClick: (nutrient: string) => void;
+  onNutrientClick: (nutrient: NutrientType) => void;
   onActivityClick: () => void;
   onMedicineClick: () => void;
   onWCClick: () => void;
@@ -337,7 +338,7 @@ export function DailySummaryCard({
               const aboveRange = percentage > 110;
 
               // Map Slovak labels to English nutrient types
-              const nutrientTypeMap: Record<string, string> = {
+              const nutrientTypeMap: Record<string, NutrientType> = {
                 "Bielkoviny": "protein",
                 "Sacharidy": "carbs",
                 "Tuky": "fats",
